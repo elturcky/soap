@@ -64,6 +64,7 @@ func RunServer() {
 		},
 		func(request interface{}) (response interface{}, err error) {
 			log.Println("handling request", request)
+
 			checkVatRequest := request.(*CheckVatRequest)
 			checkVatResponse := &CheckVatResponse{
 				CountryCode: checkVatRequest.CountryCode,

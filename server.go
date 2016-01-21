@@ -2,7 +2,6 @@ package soap
 
 import (
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -61,36 +60,34 @@ func (s *Server) HandleOperation(action string, messageType string, requestFacto
 	}
 }
 
-func (s *Server) serveSOAP(requestEnvelopeBytes []byte, soapAction string) (responseEnvelopeBytes []byte, err error) {
-	messageType := "checkVatRequest"
-	soapAction = "operationCheckVat"
-	actionHandlers, ok := s.handlers[soapAction]
-	if !ok {
-		err = errors.New("could not find handlers for action: \"" + soapAction + "\"")
-		return
-	}
-	handler, ok := actionHandlers[messageType]
-	if !ok {
-		err = errors.New("no handler for message type: " + messageType)
-		return
-	}
-	request := handler.requestFactory()
-	// parse from envelope.body.content into request
-	response, err := handler.handler(request)
-	responseEnvelope := &SOAPEnvelope{
-		Body: SOAPBody{},
-	}
-	if err != nil {
-		// soap fault party time
-		responseEnvelope.Body.Fault = &SOAPFault{
-			String: err.Error(),
-		}
-	} else {
-		responseEnvelope.Body.Content = response
-	}
-	// marshal responseEnvelope
-	return
-}
+// func (s *Server) serveSOAP(requestEnvelopeBytes []byte, soapAction string) (responseEnvelopeBytes []byte, err error) {
+// 	messageType := "checkVatRequest"
+// 	soapAction = "operationCheckVat"
+// 	actionHandlers, ok := s.handlers[soapAction]
+// 	if !ok {
+// 		err = errors.New("could not find handlers for action: \"" + soapAction + "\"")
+// 		return
+// 	}
+// 	handler, ok := actionHandlers[messageType]
+// 	if !ok {
+// 		err = errors.New("no handler for message type: " + messageType)
+// 		return
+// 	}
+// 	request := handler.requestFactory()
+// 	// parse from envelope.body.content into request
+// 	response, err := handler.handler(request)
+// 	responseEnvelope := &SOAPEnvelope{
+// 		Body: SOAPBody{},
+// 	}
+// 	if err != nil {
+// 		// soap fault party time
+// 		responseEnvelope.Body.Fault = newSoapFault("code", err.Error(), "an actor", "some details")
+// 	} else {
+// 		responseEnvelope.Body.Content = response
+// 	}
+// 	// marshal responseEnvelope
+// 	return
+// }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
@@ -105,12 +102,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// @todo be more careful retrieving the operation handler
 		operationHandlers, ok := s.handlers[""]
 		if !ok {
-			// soap fault
+			w.Write(newSoapFault("Code", "no action found", "actor", "detail"))
 			return
 		}
 		operationHandler, ok := operationHandlers["checkVatRequest"]
 		if !ok {
-			// soap fault
+			w.Write(newSoapFault("Code", "no handler found", "actor", "detail"))
 			return
 		}
 		request := operationHandler.requestFactory()
@@ -125,9 +122,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Request Body", envelope, "Error:", errUnm)
 
 		response, errResp := operationHandler.handler(envelope.Body.Content)
-
 		if errResp != nil {
 			// soap fault
+			w.Write(newSoapFault("Code", errResp.Error(), "actor", "detail"))
 			return
 		}
 
@@ -140,17 +137,27 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		xmlBytes, err := xml.MarshalIndent(responseEnvelope, "", "	")
 
 		if err != nil {
-			// soap fault
+			w.Write(newSoapFault("Code", err.Error(), "actor", "detail"))
 			return
 		}
 		w.Write(xmlBytes)
 	default:
 		// this will be a soap fault !?
-		w.Write([]byte("this is a soap service - you have to POST soap requests\n"))
-		w.Write([]byte("invalid method: " + r.Method))
+		w.Write(newSoapFault("Code", "Invalid Request. Use POST method! ", "actor", "detail"))
 	}
 }
 
 func (s *Server) ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, s)
+}
+
+func newSoapFault(faultCode string, faultString string, faultActor string, detail string) []byte {
+	soapfault := &SOAPFault{
+		Code:   faultCode,
+		String: faultString,
+		Actor:  faultActor,
+		Detail: detail,
+	}
+	xmlBytes, _ := xml.MarshalIndent(soapfault, "", "	")
+	return xmlBytes
 }
