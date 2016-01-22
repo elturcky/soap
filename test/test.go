@@ -55,7 +55,7 @@ func RunServer() {
 
 	// Create handler for checkVat
 	soapServer.HandleOperation(
-		"",
+		"operationCheckVat",
 		"checkVatRequest",
 		func() interface{} {
 			r := &CheckVatRequest{}

@@ -1,6 +1,9 @@
 package soap
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"fmt"
+)
 
 type SOAPEnvelope struct {
 	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
@@ -31,6 +34,7 @@ type SOAPFault struct {
 }
 
 func (b *SOAPBody) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	fmt.Println("This is the start element:", start)
 	if b.Content == nil {
 		return xml.UnmarshalError("Content must be a pointer to a struct")
 	}
@@ -69,7 +73,7 @@ Loop:
 				if err = d.DecodeElement(b.Content, &se); err != nil {
 					return err
 				}
-
+				fmt.Println("b.Content", b.Content, "tokenType", se)
 				consumed = true
 			}
 		case xml.EndElement:

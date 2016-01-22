@@ -60,35 +60,6 @@ func (s *Server) HandleOperation(action string, messageType string, requestFacto
 	}
 }
 
-// func (s *Server) serveSOAP(requestEnvelopeBytes []byte, soapAction string) (responseEnvelopeBytes []byte, err error) {
-// 	messageType := "checkVatRequest"
-// 	soapAction = "operationCheckVat"
-// 	actionHandlers, ok := s.handlers[soapAction]
-// 	if !ok {
-// 		err = errors.New("could not find handlers for action: \"" + soapAction + "\"")
-// 		return
-// 	}
-// 	handler, ok := actionHandlers[messageType]
-// 	if !ok {
-// 		err = errors.New("no handler for message type: " + messageType)
-// 		return
-// 	}
-// 	request := handler.requestFactory()
-// 	// parse from envelope.body.content into request
-// 	response, err := handler.handler(request)
-// 	responseEnvelope := &SOAPEnvelope{
-// 		Body: SOAPBody{},
-// 	}
-// 	if err != nil {
-// 		// soap fault party time
-// 		responseEnvelope.Body.Fault = newSoapFault("code", err.Error(), "an actor", "some details")
-// 	} else {
-// 		responseEnvelope.Body.Content = response
-// 	}
-// 	// marshal responseEnvelope
-// 	return
-// }
-
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -100,12 +71,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// // Retrieve the appropriate handler
 		// @todo be more careful retrieving the operation handler
-		operationHandlers, ok := s.handlers[""]
+		soapaction := r.Header.Get("SOAPAction")
+		// TODO get parse soap action from header if it is not available in header
+		fmt.Println("SOAPACTION: ", soapaction)
+		operationHandlers, ok := s.handlers[soapaction]
 		if !ok {
 			w.Write(newSoapFault("Code", "no action found", "actor", "detail"))
 			return
 		}
-		operationHandler, ok := operationHandlers["checkVatRequest"]
+		operationHandler, ok := operationHandlers["checkVatRequest"] // TODO replace hard coded request
 		if !ok {
 			w.Write(newSoapFault("Code", "no handler found", "actor", "detail"))
 			return
@@ -119,7 +93,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		errUnm := xml.Unmarshal(requestBytes, envelope)
 
-		fmt.Println("Request Body", envelope, "Error:", errUnm)
+		fmt.Println("Request", request, "Request Body", envelope, "Error:", errUnm)
 
 		response, errResp := operationHandler.handler(envelope.Body.Content)
 		if errResp != nil {
