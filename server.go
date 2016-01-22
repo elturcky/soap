@@ -72,7 +72,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// // Retrieve the appropriate handler
 		// @todo be more careful retrieving the operation handler
 		soapaction := r.Header.Get("SOAPAction")
-		// TODO get parse soap action from header if it is not available in header
+		// TODO get parse soap action from request if it is not available in header
+
 		fmt.Println("SOAPACTION: ", soapaction)
 		operationHandlers, ok := s.handlers[soapaction]
 		if !ok {
